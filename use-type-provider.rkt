@@ -1,6 +1,7 @@
 #lang typed/racket
 
-(require "schema-type-provider.rkt")
+(require "schema-type-provider.rkt"
+         typed/json)
 
 (provide (struct-out Person))
 
