@@ -2,69 +2,53 @@
 
 (provide schema-type-provider)
 
-(require (for-syntax racket/base))
+(require (for-syntax racket/base
+                     racket/syntax
+                     "json-schema.rkt"))
 
-(module for-syntax-mod typed/racket/base
-  (provide file->json-schema
-           schema->struct
-           schema->read)
-
-  (require/typed "json-schema.rkt"
-    [#:struct Schema ([name : Symbol])]
-    [#:struct (Schema-String Schema) ()]
-    [#:struct (Schema-Object Schema) ([properties : (Listof Schema)])]
-    [#:struct (Schema-Integer Schema) ()]
-    [#:struct (Schema-Number Schema) ()]
-    [file->json-schema (->* (String) (String) Schema)])
-
-  (define (schema->type [schema : Schema])
+(begin-for-syntax
+  (define (schema->field-definition schema)
     (define name (Schema-name schema))
+    (define typename (schema->type schema))
+    `[,name : ,typename])
+
+  (define (schema->type schema)
     (cond
-      [(Schema-String? schema) `[,name : String]]
-      [(Schema-Integer? schema) `[,name : Integer]]
-      [(Schema-Number? schema) `[,name : Number]]
-      [(Schema-Object? schema) `[,name : ,name]]))
+      [(Schema-String? schema) `String]
+      [(Schema-Integer? schema) `Integer]
+      [(Schema-Number? schema) `Number]
+      [(Schema-Object? schema) (Schema-name schema)]))
 
-  (module untyped-mod racket/base
-    (require racket/syntax
-             "json-schema.rkt")
-    
-    (provide schema->read)
-
-    (define (schema->read schema)
-      (define name (Schema-name schema))
-      (define read-name (format-symbol "read-~a" name))
-      (define property-names (map Schema-name (Schema-Object-properties schema)))
-      `(define (,read-name jsonstr)
-         (define contents (string->jsexpr jsonstr))
-         (define properties
-           (for/list ([p (in-list (quote ,property-names))])
-             (hash-ref contents p)))
-         (apply ,name properties))))
-
-  (require/typed 'untyped-mod
-    [schema->read (-> Schema-Object Any)])
-
-  (define (schema->struct [schema : Schema-Object])
+  (define ((schema->hashref hashtable) schema)
     (define name (Schema-name schema))
-    `(struct ,name (,@(map schema->type (Schema-Object-properties schema))))))
+    (define typename (schema->type schema))
+    `(cast (hash-ref ,hashtable (quote ,name)) ,typename))
 
-(require (for-syntax 'for-syntax-mod))
+  (define (schema->read schema)
+    (define name (Schema-name schema))
+    (define read-name (format-symbol "read-~a" name))
+    (define property-names (map Schema-name (Schema-Object-properties schema)))
+    (define properties (Schema-Object-properties schema))
+    `(begin
+       (: ,read-name (-> String ,name))
+       (define (,read-name jsonstr)
+         (define contents (cast (string->jsexpr jsonstr) (HashTable Symbol JSExpr)))
+         (,name ,@(map (schema->hashref 'contents) properties)))))
+
+  (define (schema->struct schema)
+    (define name (Schema-name schema))
+    (define field-defs
+      (map schema->field-definition (Schema-Object-properties schema)))
+    `(struct ,name (,@field-defs) #:transparent)))
 
 (define-syntax (schema-type-provider stx)
   (syntax-case stx ()
     [(_ filename)
      (begin
-       (define schema (file->json-schema (syntax->datum #'filename)))
+       (define schema (file->json-schema (syntax-e #'filename)))
        (define definitions
          `(begin
             ,(schema->struct schema)
             ,(schema->read schema)))
        (displayln definitions)
-       (datum->syntax stx definitions))]
-    [(_ filename name)
-     (begin
-       (define schema (file->json-schema (syntax->datum #'filename)
-                                         (syntax->datum #'name)))
-       (define definitions (schema->struct schema))
-       (datum->syntax stx definitions))]))
+       (datum->syntax stx definitions stx stx))]))

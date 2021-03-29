@@ -3,8 +3,6 @@
 (require "schema-type-provider.rkt"
          typed/json)
 
-(provide (struct-out Person))
-
 (schema-type-provider "test-schema.txt")
-
-(Person-lastName (Person 10 "Jason" "hello"))
+(Person-lastName (Person 10 "hello" "world"))
+(read-Person (string-replace "{ 'age': 10, 'firstName': 'hello', 'lastName': 'world' }" "'" "\""))
