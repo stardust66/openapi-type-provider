@@ -4,7 +4,8 @@
          (for-syntax schema->typedef
                      schema->field-definition
                      schema->writer
-                     schema->read)
+                     schema->read
+                     schema->jsexpr)
          JSExpr
          string->jsexpr
          jsexpr->string
