@@ -2,10 +2,13 @@
 
 (provide schema-type-provider
          (for-syntax schema->typedef
-                     schema->field-definition)
+                     schema->field-definition
+                     schema->writer
+                     schema->read)
          JSExpr
          string->jsexpr
-         jsexpr->string)
+         jsexpr->string
+         read-json)
 
 (require (for-syntax racket/base
                      racket/syntax
@@ -38,9 +41,9 @@
     (define read-name (format-symbol "read-~a" name))
     (define properties (Schema-Object-properties schema))
     `(begin
-       (: ,read-name (-> String ,name))
-       (define (,read-name jsonstr)
-         (define contents (cast (string->jsexpr jsonstr) (HashTable Symbol JSExpr)))
+       (: ,read-name (-> Input-Port ,name))
+       (define (,read-name in)
+         (define contents (cast (read-json in) (HashTable Symbol JSExpr)))
          (,name ,@(map (schema->hashref 'contents) properties)))))
 
   (define (schema->writer schema)

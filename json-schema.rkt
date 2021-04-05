@@ -7,7 +7,8 @@
          (struct-out Schema-String)
          (struct-out Schema-Integer)
          (struct-out Schema-Number)
-         file->json-schema)
+         file->json-schema
+         make-schema-with-name)
 
 (struct Schema ([name : Symbol]) #:transparent)
 (struct Schema-Object Schema ([properties : (Listof Schema)]))
