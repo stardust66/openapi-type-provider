@@ -7,20 +7,22 @@
 (require typed/json
          racket/list
          typed/net/url
-         "json-schema.rkt")
+         "json-schema.rkt"
+         "utils.rkt")
 
-(define-type Method (U 'get 'post))
+(define-type Method (U 'get 'head 'post 'put 'delete))
 (define-type JsonHash (HashTable Symbol JSExpr))
 
 (: method? (-> Any Boolean : Method))
 (define (method? m)
-  (or (eq? m 'get) (eq? m 'post)))
+  (and (member m '(get head post put delete)) #t))
 
 (struct API
   ([name : String]
    [routes : (Listof Route)]
    [hostname : String]
    [path-prefix : String]) #:transparent)
+
 (struct Route
   ([path : String]
    [method : Method]
@@ -35,72 +37,56 @@
    [in : ParamIn])
   #:transparent)
 
-(define (make-param [param : JsonHash])
-  (define name (assert (hash-ref param 'name) string?))
-  (define schema (hash-ref param 'schema))
-  (make-schema-with-name (string->symbol name) schema))
+(define (make-param [param : JSExpr] [top : JSExpr])
+  (define name (assert (json-ref param 'name) string?))
+  (define schema (json-ref param 'schema))
+  (make-schema-with-name (string->symbol name) schema top))
 
-(define (make-response [code : Symbol] [response : JsonHash])
-  (define schema
-    (hash-ref
-     (assert
-      (hash-ref
-       (assert
-        (hash-ref response 'content)
-        hash?)
-       'application/json)
-      hash?)
-     'schema))
-  (make-schema-with-name code schema))
+(define (make-response [code : Symbol] [response : JSExpr] [top : JSExpr])
+  (define schema (json-refs response '(content application/json schema)))
+  (make-schema-with-name code schema top))
 
-(define (get-routes [paths : JsonHash])
+(define (get-routes [paths : JSExpr] [top : JSExpr])
   (: routes (Listof (Listof Route)))
   (define routes
-    (for/list ([(path contents) (in-hash paths)])
+    (for/list ([(path contents) (in-hash (assert paths hash?))])
       (hash-map
        (assert contents hash?)
-       (λ (method body)
-         (with-asserts ([method method?] [body hash?])
+       (λ ([method : Symbol] [body : JSExpr])
+         (with-asserts ([method method?])
            (define parameters
              (map
-              make-param
-              (cast (hash-ref body 'parameters) (Listof JsonHash))))
+              (λ ([p : JSExpr]) (make-param p top))
+              (assert (json-ref body 'parameters) list?)))
            (define response
              (make-response
               '|200|
-              (cast
-               (hash-ref
-                (cast (hash-ref body 'responses) JsonHash)
-                '|200|)
-               JsonHash)))
+              (json-refs body '(responses |200|))
+              top))
            (Route (symbol->string path) method parameters response))))))
   (append* routes))
 
 (define (parse-openapi [contents : JSExpr])
-  (with-asserts ([contents hash?])
-    (define paths (assert (hash-ref contents 'paths) hash?))
-    (define info (assert (hash-ref contents 'info) hash?))
-    (define name (assert (hash-ref info 'title) string?))
-    (define routes (get-routes (cast paths JsonHash)))
-    (define url
-      (string->url
-       (assert
-        (hash-ref
-         (assert
-          (car (assert (hash-ref contents 'servers) list?))
-          hash?) 'url)
-        string?)))
-    (define path-prefix
-      (foldl
-       (λ ([e : path/param] [acc : String])
-         (string-append acc "/" (assert (path/param-path e) string?)))
-       ""
-       (url-path url)))
-    (API
-     name
-     routes
-     (assert (url-host url) string?)
-     path-prefix)))
+  (define name (assert (json-refs contents '(info title)) string?))
+  (define routes (get-routes (json-ref contents 'paths) contents))
+  (define url
+    (string->url
+     (assert
+      (json-ref
+       (car (assert (json-ref contents 'servers) list?))
+       'url)
+      string?)))
+  (define path-prefix
+    (foldl
+     (λ ([e : path/param] [acc : String])
+       (string-append acc "/" (assert (path/param-path e) string?)))
+     ""
+     (url-path url)))
+  (API
+   name
+   routes
+   (assert (url-host url) string?)
+   path-prefix))
 
 (define (file->openapi [filename : String])
   (with-input-from-file filename
