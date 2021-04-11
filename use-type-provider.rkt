@@ -2,7 +2,7 @@
 
 (require "schema-type-provider.rkt")
 
-(schema-type-provider "test-schema.txt")
+(schema-type-provider "schemas/person-schema.json")
 (Person-lastName (Person 10 "hello" "world"))
 
 ; Reading
