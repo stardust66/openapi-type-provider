@@ -1,0 +1,895 @@
+{
+  "openapi" : "3.0.0",
+  "info" : {
+    "version" : "v1",
+    "title" : "Spotify",
+    "description" : "Spotify"
+  },
+  "servers" : [ {
+    "url" : "https://api.spotify.com/v1",
+    "description" : "Spotify API"
+  }, {
+    "url" : "https://virtserver.swaggerhub.com/Stue/Spotify/v1",
+    "description" : "SwaggerHub API Auto Mocking"
+  } ],
+  "security" : [ {
+    "OAuth_2_0" : [ ]
+  } ],
+  "paths" : {
+    "/me" : {
+      "get" : {
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/user"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/playlists" : {
+      "get" : {
+        "parameters" : [ {
+          "$ref" : "#/components/parameters/paging_limit"
+        }, {
+          "$ref" : "#/components/parameters/paging_offset"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "allOf" : [ {
+                    "$ref" : "#/components/schemas/paging"
+                  }, {
+                    "type" : "object",
+                    "properties" : {
+                      "items" : {
+                        "type" : "array",
+                        "items" : {
+                          "$ref" : "#/components/schemas/playlist"
+                        }
+                      }
+                    }
+                  } ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/playlists/{playlist_id}" : {
+      "get" : {
+        "parameters" : [ {
+          "name" : "playlist_id",
+          "in" : "path",
+          "schema" : {
+            "type" : "string"
+          },
+          "required" : true
+        }, {
+          "name" : "fields",
+          "in" : "query",
+          "schema" : {
+            "type" : "string"
+          },
+          "required" : false
+        }, {
+          "name" : "market",
+          "in" : "query",
+          "schema" : {
+            "type" : "string"
+          },
+          "required" : false
+        }, {
+          "name" : "additional_types",
+          "in" : "query",
+          "schema" : {
+            "type" : "string"
+          },
+          "required" : false
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/playlist"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/playlists/{playlist_id}/tracks" : {
+      "get" : {
+        "parameters" : [ {
+          "name" : "playlist_id",
+          "in" : "path",
+          "schema" : {
+            "type" : "string"
+          },
+          "required" : true
+        }, {
+          "name" : "fields",
+          "in" : "query",
+          "schema" : {
+            "type" : "string"
+          },
+          "required" : false
+        }, {
+          "name" : "market",
+          "in" : "query",
+          "schema" : {
+            "type" : "string"
+          },
+          "required" : false
+        }, {
+          "name" : "additional_types",
+          "in" : "query",
+          "schema" : {
+            "type" : "string"
+          },
+          "required" : false
+        }, {
+          "$ref" : "#/components/parameters/paging_limit"
+        }, {
+          "$ref" : "#/components/parameters/paging_offset"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "allOf" : [ {
+                    "$ref" : "#/components/schemas/paging"
+                  }, {
+                    "type" : "object",
+                    "properties" : {
+                      "items" : {
+                        "type" : "array",
+                        "items" : {
+                          "$ref" : "#/components/schemas/playlist_track"
+                        }
+                      }
+                    }
+                  } ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/player" : {
+      "get" : {
+        "parameters" : [ {
+          "name" : "market",
+          "in" : "query",
+          "schema" : {
+            "type" : "string"
+          },
+          "required" : false
+        }, {
+          "name" : "additional_types",
+          "in" : "query",
+          "schema" : {
+            "type" : "string"
+          },
+          "required" : false
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/currently_playing_content"
+                }
+              }
+            }
+          },
+          "204" : {
+            "description" : "NO CONTENT"
+          }
+        }
+      }
+    },
+    "/me/player/devices" : {
+      "get" : {
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "devices" : {
+                      "type" : "array",
+                      "items" : {
+                        "$ref" : "#/components/schemas/device"
+                      }
+                    }
+                  },
+                  "required" : [ "devices" ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/player/play" : {
+      "put" : {
+        "parameters" : [ {
+          "name" : "device_id",
+          "in" : "query",
+          "schema" : {
+            "type" : "string"
+          },
+          "required" : false
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "properties" : {
+                  "context_uri" : {
+                    "type" : "string"
+                  },
+                  "uris" : {
+                    "type" : "array",
+                    "items" : {
+                      "type" : "string"
+                    }
+                  },
+                  "offset" : {
+                    "type" : "object",
+                    "properties" : {
+                      "position" : {
+                        "type" : "integer"
+                      },
+                      "uri" : {
+                        "type" : "string"
+                      }
+                    }
+                  },
+                  "position_ms" : {
+                    "type" : "integer"
+                  }
+                }
+              }
+            }
+          },
+          "required" : false
+        },
+        "responses" : {
+          "204" : {
+            "description" : "NO CONTENT"
+          }
+        }
+      }
+    },
+    "/me/player/pause" : {
+      "put" : {
+        "parameters" : [ {
+          "name" : "device_id",
+          "in" : "query",
+          "schema" : {
+            "type" : "string"
+          },
+          "required" : false
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "NO CONTENT"
+          }
+        }
+      }
+    },
+    "/me/player/next" : {
+      "post" : {
+        "parameters" : [ {
+          "name" : "device_id",
+          "in" : "query",
+          "schema" : {
+            "type" : "string"
+          },
+          "required" : false
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "NO CONTENT"
+          }
+        }
+      }
+    },
+    "/me/player/previous" : {
+      "post" : {
+        "parameters" : [ {
+          "name" : "device_id",
+          "in" : "query",
+          "schema" : {
+            "type" : "string"
+          },
+          "required" : false
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "NO CONTENT"
+          }
+        }
+      }
+    }
+  },
+  "components" : {
+    "securitySchemes" : {
+      "OAuth_2_0" : {
+        "type" : "oauth2",
+        "description" : "OAuth 2.0",
+        "flows" : {
+          "authorizationCode" : {
+            "authorizationUrl" : "https://accounts.spotify.com/authorize",
+            "tokenUrl" : "https://accounts.spotify.com/api/token",
+            "refreshUrl" : "https://accounts.spotify.com/api/token",
+            "scopes" : {
+              "user-library-read" : "Read access to a user's \"Your Music\" library.",
+              "playlist-read-collaborative" : "Include collaborative playlists when requesting a user's playlists.",
+              "playlist-read-private" : "Read access to user's private playlists.",
+              "user-read-private" : "Read access to user’s subscription details (type of user account).",
+              "user-read-playback-state" : "Read access to a user’s player state.",
+              "user-modify-playback-state" : "Write access to a user’s playback state"
+            }
+          },
+          "implicit" : {
+            "authorizationUrl" : "https://accounts.spotify.com/authorize",
+            "scopes" : {
+              "user-library-read" : "Read access to a user's \"Your Music\" library.",
+              "playlist-read-collaborative" : "Include collaborative playlists when requesting a user's playlists.",
+              "playlist-read-private" : "Read access to user's private playlists.",
+              "user-read-private" : "Read access to user’s subscription details (type of user account).",
+              "user-read-playback-state" : "Read access to a user’s player state.",
+              "user-modify-playback-state" : "Write access to a user’s playback state"
+            }
+          }
+        }
+      }
+    },
+    "schemas" : {
+      "album" : {
+        "description" : "An Album object",
+        "type" : "object",
+        "properties" : {
+          "album_group" : {
+            "type" : "string"
+          },
+          "album_type" : {
+            "type" : "string"
+          },
+          "artists" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/artist"
+            }
+          },
+          "available_markets" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "external_urls" : {
+            "$ref" : "#/components/schemas/external_urls"
+          },
+          "href" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "images" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/image"
+            }
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "release_date" : {
+            "type" : "string"
+          },
+          "release_date_precision" : {
+            "type" : "string"
+          },
+          "restrictions" : {
+            "$ref" : "#/components/schemas/restrictions"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "uri" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "album_type", "artists", "available_markets", "external_urls", "href", "id", "images", "name", "release_date", "release_date_precision", "type", "uri" ]
+      },
+      "artist" : {
+        "description" : "An Artist object",
+        "type" : "object",
+        "properties" : {
+          "external_urls" : {
+            "$ref" : "#/components/schemas/external_urls"
+          },
+          "href" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "uri" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "external_urls", "href", "id", "name", "type", "uri" ]
+      },
+      "user" : {
+        "description" : "A User object",
+        "type" : "object",
+        "properties" : {
+          "country" : {
+            "type" : "string"
+          },
+          "display_name" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "external_urls" : {
+            "$ref" : "#/components/schemas/external_urls"
+          },
+          "followers" : {
+            "$ref" : "#/components/schemas/followers"
+          },
+          "href" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "images" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/image"
+            }
+          },
+          "product" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "uri" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "external_urls", "href", "id", "type", "uri" ]
+      },
+      "external_ids" : {
+        "description" : "An ExternalIDs object",
+        "type" : "object",
+        "additionalProperties" : {
+          "type" : "string"
+        }
+      },
+      "external_urls" : {
+        "description" : "An ExternalURLs object",
+        "type" : "object",
+        "properties" : {
+          "lala" : {
+            "type" : "integer"
+          }
+        },
+        "additionalProperties" : {
+          "type" : "string"
+        }
+      },
+      "followers" : {
+        "description" : "A Followers object",
+        "type" : "object",
+        "properties" : {
+          "href" : {
+            "type" : "string"
+          },
+          "total" : {
+            "type" : "integer"
+          }
+        },
+        "required" : [ "total" ]
+      },
+      "image" : {
+        "description" : "An Image object",
+        "type" : "object",
+        "properties" : {
+          "height" : {
+            "type" : "integer"
+          },
+          "url" : {
+            "type" : "string"
+          },
+          "width" : {
+            "type" : "integer"
+          }
+        },
+        "required" : [ "url" ]
+      },
+      "track_link" : {
+        "description" : "A TrackLink object",
+        "type" : "object",
+        "properties" : {
+          "external_urls" : {
+            "$ref" : "#/components/schemas/external_urls"
+          },
+          "href" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "uri" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "external_urls", "href", "id", "type", "uri" ]
+      },
+      "paging" : {
+        "description" : "A Paging object",
+        "type" : "object",
+        "properties" : {
+          "href" : {
+            "type" : "string"
+          },
+          "limit" : {
+            "type" : "integer"
+          },
+          "next" : {
+            "type" : "string"
+          },
+          "offset" : {
+            "type" : "integer"
+          },
+          "previous" : {
+            "type" : "string"
+          },
+          "total" : {
+            "type" : "integer"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "oneOf" : [ {
+                "$ref" : "#/components/schemas/playlist"
+              } ]
+            }
+          }
+        },
+        "required" : [ "href", "items", "limit", "offset", "total" ]
+      },
+      "playlist" : {
+        "description" : "A Playlist object",
+        "type" : "object",
+        "properties" : {
+          "collaborative" : {
+            "type" : "boolean"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "external_urls" : {
+            "$ref" : "#/components/schemas/external_urls"
+          },
+          "href" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "images" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/image"
+            }
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "owner" : {
+            "$ref" : "#/components/schemas/user"
+          },
+          "public" : {
+            "type" : "boolean"
+          },
+          "snapshot_id" : {
+            "type" : "string"
+          },
+          "tracks" : {
+            "type" : "object",
+            "properties" : {
+              "href" : {
+                "type" : "string"
+              },
+              "total" : {
+                "type" : "integer"
+              }
+            },
+            "required" : [ "href", "total" ]
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "uri" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "collaborative", "external_urls", "href", "id", "name", "owner", "snapshot_id", "type", "uri" ]
+      },
+      "playlist_track" : {
+        "description" : "A PlaylistTrack object",
+        "type" : "object",
+        "properties" : {
+          "added_at" : {
+            "type" : "string"
+          },
+          "added_by" : {
+            "$ref" : "#/components/schemas/user"
+          },
+          "is_local" : {
+            "type" : "boolean"
+          },
+          "track" : {
+            "$ref" : "#/components/schemas/track"
+          }
+        },
+        "required" : [ "is_local", "track" ]
+      },
+      "track" : {
+        "description" : "A Track object",
+        "type" : "object",
+        "properties" : {
+          "album" : {
+            "$ref" : "#/components/schemas/album"
+          },
+          "artists" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/artist"
+            }
+          },
+          "available_markets" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "disc_number" : {
+            "type" : "integer"
+          },
+          "duration_ms" : {
+            "type" : "integer"
+          },
+          "explicit" : {
+            "type" : "boolean"
+          },
+          "external_ids" : {
+            "$ref" : "#/components/schemas/external_ids"
+          },
+          "external_urls" : {
+            "$ref" : "#/components/schemas/external_urls"
+          },
+          "href" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "is_playable" : {
+            "type" : "boolean"
+          },
+          "linked_from" : {
+            "$ref" : "#/components/schemas/track_link"
+          },
+          "restrictions" : {
+            "$ref" : "#/components/schemas/restrictions"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "popularity" : {
+            "type" : "integer"
+          },
+          "preview_url" : {
+            "type" : "string"
+          },
+          "track_number" : {
+            "type" : "integer"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "uri" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "album", "artists", "available_markets", "disc_number", "duration_ms", "explicit", "external_ids", "external_urls", "href", "id", "name", "popularity", "track_number", "type", "uri" ]
+      },
+      "restrictions" : {
+        "type" : "object",
+        "properties" : {
+          "reason" : {
+            "type" : "string"
+          }
+        }
+      },
+      "device" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "is_active" : {
+            "type" : "boolean"
+          },
+          "is_private_session" : {
+            "type" : "boolean"
+          },
+          "is_restricted" : {
+            "type" : "boolean"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "volume_percent" : {
+            "type" : "integer"
+          }
+        },
+        "required" : [ "is_active", "is_private_session", "is_restricted", "name", "type" ]
+      },
+      "currently_playing_content" : {
+        "type" : "object",
+        "properties" : {
+          "device" : {
+            "$ref" : "#/components/schemas/device"
+          },
+          "repeat_state" : {
+            "type" : "string"
+          },
+          "shuffle_state" : {
+            "type" : "boolean"
+          },
+          "content" : {
+            "$ref" : "#/components/schemas/context"
+          },
+          "timestamp" : {
+            "type" : "integer"
+          },
+          "progress_ms" : {
+            "type" : "integer"
+          },
+          "is_playing" : {
+            "type" : "boolean"
+          },
+          "item" : {
+            "$ref" : "#/components/schemas/track"
+          },
+          "currently_playing_type" : {
+            "type" : "string"
+          },
+          "actions" : {
+            "type" : "object",
+            "properties" : {
+              "disallows" : {
+                "$ref" : "#/components/schemas/disallows"
+              }
+            }
+          }
+        },
+        "required" : [ "device", "repeat_state", "shuffle_state", "timestamp", "progress_ms", "is_playing", "currently_playing_type", "actions" ]
+      },
+      "context" : {
+        "type" : "object",
+        "properties" : {
+          "uri" : {
+            "type" : "string"
+          },
+          "href" : {
+            "type" : "string"
+          },
+          "external_urls" : {
+            "$ref" : "#/components/schemas/external_urls"
+          },
+          "type" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "uri", "type" ]
+      },
+      "disallows" : {
+        "type" : "object",
+        "properties" : {
+          "interrupting_playback" : {
+            "type" : "boolean"
+          },
+          "pausing" : {
+            "type" : "boolean"
+          },
+          "resuming" : {
+            "type" : "boolean"
+          },
+          "seeking" : {
+            "type" : "boolean"
+          },
+          "skipping_next" : {
+            "type" : "boolean"
+          },
+          "skipping_prev" : {
+            "type" : "boolean"
+          },
+          "toggling_repeat_context" : {
+            "type" : "boolean"
+          },
+          "toggling_shuffle" : {
+            "type" : "boolean"
+          },
+          "toggling_repeat_track" : {
+            "type" : "boolean"
+          },
+          "transferring_playback" : {
+            "type" : "boolean"
+          }
+        }
+      }
+    },
+    "parameters" : {
+      "paging_limit" : {
+        "name" : "limit",
+        "in" : "query",
+        "schema" : {
+          "type" : "integer"
+        },
+        "required" : false
+      },
+      "paging_offset" : {
+        "name" : "offset",
+        "in" : "query",
+        "schema" : {
+          "type" : "integer"
+        },
+        "required" : false
+      }
+    }
+  }
+}
