@@ -2,6 +2,7 @@
 
 (require typed/json
          racket/string
+         racket/list
          "utils.rkt")
 
 (provide (struct-out Schema)
@@ -11,82 +12,70 @@
          (struct-out Schema-Number)
          (struct-out Schema-Boolean)
          (struct-out Schema-Array)
+         (struct-out Property)
          file->json-schema
-         make-schema-with-name)
+         make-schema-with-name
+         ref-string->list
+         trace-ref)
 
-(struct Schema ([name : Symbol]) #:transparent)
-(struct Schema-Object Schema ([properties : (Listof Schema)]))
+(struct Schema () #:transparent)
+(struct Schema-Object Schema ([name : Symbol] [properties : (Listof Property)]))
 (struct Schema-String Schema ())
 (struct Schema-Integer Schema ())
 (struct Schema-Number Schema ())
 (struct Schema-Boolean Schema ())
 (struct Schema-Array Schema ([items : Schema]))
+(struct Property ([name : Symbol] [schema : Schema]))
 
 (define (make-properties [properties : JSExpr] [top : JSExpr])
   (hash-map
    (assert properties hash?)
    (λ ([name : Symbol] [contents : JSExpr])
-     (make-schema-with-name name contents top))))
+     (Property name
+               (make-schema-with-name name contents top)))))
 
-(: trace-ref (-> String JSExpr JSExpr))
-(define (trace-ref [ref : String] [top : JSExpr])
-  (define path (map string->symbol (string-split (string-trim ref "#") "/")))
-  (json-refs top path))
+(define (ref-string->list [ref : String]) : (Listof Symbol)
+  (map string->symbol (string-split (string-trim ref "#") "/")))
 
-;; Version of make-schema-with-name where name is not known. We have to deduce
-;; the name from the "title" field in the case of an object, or just use a
-;; gensym symbol as the name because it doesn't matter what the name of the
-;; schema is.
-(: make-schema (-> JSExpr JSExpr Schema))
-(define (make-schema contents top)
-  (assert contents hash?)
-  (cond
-    [(hash-has-key? contents '$ref)
-     (make-schema
-      (trace-ref (assert (hash-ref contents '$ref) string?) top)
-      top)]
-    [else
-     (define type (assert (hash-ref contents 'type) string?))
-     (case type
-       [("object")
-        (define name
-          (string->symbol (assert (json-ref contents 'title) string?)))
-        (make-schema-with-name name contents top)]
-       [else
-        (make-schema-with-name (gensym) contents top)])]))
+(define (trace-ref [ref : String] [top : JSExpr]) : JSExpr
+  (json-refs top (ref-string->list ref)))
 
-(: make-schema-with-name (-> Symbol JSExpr JSExpr Schema))
-(define (make-schema-with-name name contents top)
-  (assert contents hash?)
-  (cond
-    [(hash-has-key? contents '$ref)
-     (make-schema-with-name
-      name
-      (trace-ref (assert (hash-ref contents '$ref) string?) top)
-      top)]
-    [else
-     (define type (assert (hash-ref contents 'type) string?))
-     (case type
-       [("object")
-        (Schema-Object
-         name
-         (make-properties (hash-ref contents 'properties) top))]
-       [("string") (Schema-String name)]
-       [("integer") (Schema-Integer name)]
-       [("number") (Schema-Number name)]
-       [("boolean") (Schema-Boolean name)]
-       [("array")
-        (Schema-Array
-         name
-         (make-schema (hash-ref contents 'items) top))]
-       [else (error (format "Type not supported: ~a" type))])]))
+(define (make-schema-with-name [name : Symbol]
+                               [contents : JSExpr]
+                               [top : JSExpr]) : Schema
+  (with-asserts ([contents hash?])
+    (define name-upper (upper-name name))
+    (cond
+      [(hash-has-key? contents '$ref)
+       (define ref-string (assert (hash-ref contents '$ref) string?))
+       (define schema-content (trace-ref ref-string top))
+       (make-schema-with-name name-upper schema-content top)]
+      [else
+       (define type (assert (hash-ref contents 'type) string?))
+       (case type
+         [("object")
+          (Schema-Object
+           name-upper
+           (make-properties
+            (hash-ref contents
+                      'properties
+                      (λ () (cast (hash) JSExpr)))
+            top))]
+         [("string") (Schema-String)]
+         [("integer") (Schema-Integer)]
+         [("number") (Schema-Number)]
+         [("boolean") (Schema-Boolean)]
+         [("array")
+          (Schema-Array
+           (make-schema-with-name (gensym) (hash-ref contents 'items) top))]
+         [else (error (format "Type not supported: ~a" type))])])))
 
 (define (parse-json-schema [contents : JSExpr])
   (cond
     [(hash? contents)
      (define title-expr (assert (hash-ref contents 'title) string?))
      (make-schema-with-name (string->symbol title-expr) contents contents)]
-    [else (error "contents must be hashtable")]))
+    [else (error "Schema must be a JSON object.")]))
 
 (: file->json-schema (->* (String) (Symbol) Schema))
 (define (file->json-schema filename [name #f])
