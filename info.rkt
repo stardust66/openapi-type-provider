@@ -12,4 +12,4 @@
 
 (define pkg-authors '("kbtpodifo@gmail.com"))
 
-(define scribblings '(("scribblings/openapi-type-provider.scrbl")))
+(define scribblings '(("scribblings/openapi-type-provider.scrbl" ())))
