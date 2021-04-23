@@ -22,34 +22,63 @@
   ([name : String]
    [routes : (Listof Route)]
    [hostname : String]
-   [path-prefix : String]) #:transparent)
+   [ssl? : Boolean]
+   [path-prefix : String])
+  #:transparent)
 
 (struct Route
   ([path : String]
    [method : Method]
+   [security-requirement : (Option Security-Scheme)]
+   [body : (Listof Property)]
    [parameters : (Listof Param)]
    [responses : (Listof Response)])
   #:transparent)
 
-(define-type ParamIn (U 'query 'path 'header 'cookie))
-
+(define-type Param-In (U 'query 'path 'header 'cookie))
 (struct Param
   ([name : Symbol]
    [schema : Schema]
-   [in : ParamIn])
+   [in : Param-In])
   #:transparent)
 
 (struct Response
   ([schema : Schema-Object]
-   [code : Symbol]))
+   [code : Symbol])
+  #:transparent)
 
-(define (string->ParamIn [in : String]) : ParamIn
+(define-type Security-Type (U 'apiKey 'http 'oauth2 'openIdConnect))
+(define-type Security-In (U 'query 'header 'cookie))
+(struct Security-Scheme
+  ([type : Security-Type]
+   [in : Security-In])
+  #:transparent)
+
+;; TODO: Write macro for the following functions
+(define (string->Param-In [in : String]) : Param-In
   (case in
     [("path") 'path]
     [("header") 'header]
     [("query") 'query]
     [("cookie") 'cookie]
     [else (error (format "Expected one of 'query', 'path', 'header', 'cookie. Given ~a"
+                         in))]))
+
+(define (string->Security-Type [in : String]) : Security-Type
+  (case in
+    [("apiKey") 'apiKey]
+    [("http") 'http]
+    [("oauth2") 'oauth2]
+    [("openIdConnect") 'openIdConnect]
+    [else (error (format "Expected one of 'apiKey', 'http', 'oauth2', 'openIdConnect'. Given ~a"
+                         in))]))
+
+(define (string->Security-In [in : String]) : Security-In
+  (case in
+    [("query") 'query]
+    [("header") 'header]
+    [("cookie") 'cookie]
+    [else (error (format "Expected one of 'query', 'header', 'cookie'. Given ~a"
                          in))]))
 
 (define (make-param [param : JSExpr] [top : JSExpr]) : Param
@@ -60,15 +89,23 @@
      (define name (string->symbol (assert (json-ref param 'name) string?)))
      (define schema-json (json-ref param 'schema))
      (define schema (make-schema-with-name name schema-json top))
-     (define param-in (string->ParamIn (assert (json-ref param 'in) string?)))
+     (define param-in (string->Param-In (assert (json-ref param 'in) string?)))
      (Param name schema param-in)]))
+
+(define schema-keys '(content application/json schema))
+
+(define (make-request-body [request : JSExpr]
+                           [top : JSExpr]) : (Listof Property)
+  (cond
+    [(json-has-keys? request schema-keys)
+     (make-properties (json-ref (json-refs request schema-keys) 'properties) top)]
+    [else '()]))
 
 (define (make-response [code : Symbol]
                        [method : Method]
                        [path : Symbol]
                        [response : JSExpr]
                        [top : JSExpr]) : Response
-  (define schema-keys '(content application/json schema))
   (define schema-name (string->symbol (format "~a-~a-~a" method path code)))
   (define schema
     (if (json-has-keys? response schema-keys)
@@ -92,7 +129,17 @@
          (for/list ([(code response-body)
                      (in-hash (assert (json-ref body 'responses) hash?))])
            (make-response code method path response-body top)))
-       (Route (symbol->string path) method parameters responses)))))
+
+       (define request-body
+         (make-request-body (json-ref body 'requestBody (hash)) top))
+
+       (Route
+        (symbol->string path)
+        method
+        #f  ; Security not implemented
+        request-body
+        parameters
+        responses)))))
 
 (define (make-routes [paths : JSExpr] [top : JSExpr])
   (define routes : (Listof (Listof Route))
@@ -116,10 +163,12 @@
        (string-append acc "/" (assert (path/param-path e) string?)))
      ""
      (url-path url)))
+  (define ssl? (string=? (assert (url-scheme url) string?) "https"))
   (API
    name
    routes
    (assert (url-host url) string?)
+   ssl?
    path-prefix))
 
 (define (file->openapi [filename : String])
