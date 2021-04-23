@@ -45,19 +45,15 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "allOf" : [ {
-                    "$ref" : "#/components/schemas/paging"
-                  }, {
-                    "type" : "object",
-                    "properties" : {
+                  "type" : "object",
+                  "properties" : {
+                    "items" : {
+                      "type" : "array",
                       "items" : {
-                        "type" : "array",
-                        "items" : {
-                          "$ref" : "#/components/schemas/playlist"
-                        }
+                        "$ref" : "#/components/schemas/playlist"
                       }
                     }
-                  } ]
+                  }
                 }
               }
             }
@@ -151,19 +147,15 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "allOf" : [ {
-                    "$ref" : "#/components/schemas/paging"
-                  }, {
-                    "type" : "object",
-                    "properties" : {
+                  "type" : "object",
+                  "properties" : {
+                    "items" : {
+                      "type" : "array",
                       "items" : {
-                        "type" : "array",
-                        "items" : {
-                          "$ref" : "#/components/schemas/playlist_track"
-                        }
+                        "$ref" : "#/components/schemas/playlist_track"
                       }
                     }
-                  } ]
+                  }
                 }
               }
             }
