@@ -1,3 +1,7 @@
-*~
+# Generated code and documentation
 compiled/
+doc/
+
+# Temporary files from DrRacket
+*~
 *.rkt#
