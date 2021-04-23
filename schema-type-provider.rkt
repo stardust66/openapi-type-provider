@@ -38,7 +38,7 @@
   (define ((property->hashref hashtable) property)
     (define name (Property-name property))
     (define schema (Property-schema property))
-    (define content `(hash-ref ,hashtable (quote ,name)))
+    (define content `(hash-ref (assert ,hashtable hash?) (quote ,name)))
     (cond
       [(Schema-Object? schema)
        (define reader (format-symbol "read-~a" (schema->typename schema)))
@@ -55,6 +55,10 @@
        (define typename (schema->typename schema))
        `(cast ,content ,typename)]))
 
+  ;; Given a Schema-Object, define a function that converts a JSON Object
+  ;; with that schema from JSExpr to the generated struct type. Also define
+  ;; the appropriate functions for all of its properties. Given a Schema-Array,
+  ;; define the same function for its item type.
   (define (schema->read schema seen-names)
     (cond
       [(Schema-Object? schema)
@@ -67,11 +71,13 @@
             ,@(map
                (λ (p) (schema->read (Property-schema p) seen-names))
                properties)
-            (: ,read-name (-> (HashTable Symbol JSExpr) ,name))
+            (: ,read-name (-> JSExpr ,name))
             (define (,read-name contents)
               (,name ,@(map (property->hashref 'contents) properties)))))]
       [(Schema-Array? schema)
-       (schema->read (Schema-Array-items schema) seen-names)]))
+       (schema->read (Schema-Array-items schema) seen-names)]
+      [(Schema? schema) (void)]
+      [else (error "Not a schema")]))
 
   ;; Given a Schema, return the function (as a Symbol) that turns an instance
   ;; of that Schema into a JSExpr value.
@@ -86,7 +92,8 @@
               (map ,item-writer l)))]
       [(Schema-Object? schema)
        (format-symbol "write-~a" (schema->typename schema))]
-      [else 'values]))
+      [(Schema? schema) 'values]
+      [else (error "Not a schema")]))
 
   (define (schema->jsexpr schema seen-names)
     (cond
@@ -102,7 +109,7 @@
                properties)
             (: ,write-name (-> ,name JSExpr))
             (define (,write-name obj)
-              (make-hasheq
+              (make-hash
                (list
                 ,@(map
                    (λ (property)
@@ -115,7 +122,9 @@
                        (Pairof Symbol JSExpr)))
                    properties))))))]
       [(Schema-Array? schema)
-       (schema->jsexpr (Schema-Array-items schema) seen-names)]))
+       (schema->jsexpr (Schema-Array-items schema) seen-names)]
+      [(Schema? schema) (void)]
+      [else (error "Not a schema")]))
 
   (define (schema->typedef schema seen-names)
     (cond
@@ -127,23 +136,29 @@
          (define field-defs
            (map property->field-definition properties))
 
-         ;; Also generate all type definitions that the current one refers to
          `(begin
+            ;; Also generate all type definitions that the current definition
+            ;; refers to
             ,@(map
                (λ (p) (schema->typedef (Property-schema p) seen-names))
                properties)
             (struct ,name (,@field-defs) #:transparent)))]
       [(Schema-Array? schema)
-       (schema->typedef (Schema-Array-items schema) seen-names)])))
+       (schema->typedef (Schema-Array-items schema) seen-names)]
+      [(Schema? schema) (void)]
+      [else (error "Not a schema")])))
 
 (define-syntax (schema-type-provider stx)
   (syntax-case stx ()
     [(_ filename)
      (begin
        (define schema (file->json-schema (syntax-e #'filename)))
+       (define typedef-names (mutable-set))
+       (define read-names (mutable-set))
+       (define write-names (mutable-set))
        (define definitions
          `(begin
-            ,(schema->typedef schema)
-            ,(schema->read schema)
-            ,(schema->jsexpr schema)))
+            ,(schema->typedef schema typedef-names)
+            ,(schema->read schema read-names)
+            ,(schema->jsexpr schema write-names)))
        (datum->syntax stx definitions stx stx))]))
