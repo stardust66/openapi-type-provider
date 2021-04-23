@@ -43,9 +43,22 @@
                        (schema->read schema read-seen)
                        (schema->jsexpr schema write-seen)))
                     (Route-responses route))
-                   (map (λ (param)
-                          (schema->typedef param typedef-seen))
-                        (Route-parameters route))))
+                   (append-map
+                    (λ (param)
+                      (define schema (Param-schema param))
+                      (list
+                       (schema->typedef schema typedef-seen)
+                       (schema->read schema read-seen)
+                       (schema->jsexpr schema write-seen)))
+                    (Route-parameters route))
+                   (append-map
+                    (λ (p)
+                      (define schema (Property-schema p))
+                      (list
+                       (schema->typedef schema typedef-seen)
+                       (schema->read schema read-seen)
+                       (schema->jsexpr schema write-seen)))
+                    (Route-body route))))
                 (API-routes api)))
 
   ;; Generate methods for sending requests defined in API struct
@@ -54,11 +67,14 @@
      (λ (route)
        (define name (string->symbol (Route-path route)))
        (define parameters (Route-parameters route))
-       (define fields (map param->field-definition parameters))
-       `(define (,name [appid : String] ,@fields)
+       (define param-fields (map param->field-definition parameters))
+       (define body (Route-body route))
+       (define body-fields
+         (map property->field-definition body))
+
+       `(define (,name ,@param-fields ,@body-fields)
           (define params
             (list
-             (cons 'appid appid)
              ,@(map
                 (λ (p)
                   (define writer (schema->writer (Param-schema p)))
@@ -67,15 +83,39 @@
                          (jsexpr->string (,writer ,param-name))))
                 parameters)))
 
+          (define request-body
+            (jsexpr->string
+             (make-hash
+              (list
+               ,@(map
+                  (λ (p)
+                    (define writer (schema->writer (Property-schema p)))
+                    (define property-name (Property-name p))
+                    `(cons (quote ,property-name)
+                           (cast (,writer ,property-name) JSExpr)))
+                  body)))))
+
           (define query (alist->form-urlencoded params))
 
+          (define path
+            ,(if (null? parameters)
+                 (string-append (API-path-prefix api) (Route-path route))
+                 `(string-append ,(API-path-prefix api)
+                                 ,(Route-path route)
+                                 "?"
+                                 query)))
+
           (define-values (status headers in)
-            (http-sendrecv
-             ,(API-hostname api)
-             (string-append ,(API-path-prefix api)
-                            ,(Route-path route)
-                            "?"
-                            query)))
+            ,(if (null? body)
+                 `(http-sendrecv
+                   ,(API-hostname api)
+                   path
+                   #:ssl? ,(API-ssl? api))
+                 `(http-sendrecv
+                   ,(API-hostname api)
+                   path
+                   #:ssl? ,(API-ssl? api)
+                   #:data request-body)))
 
           ;; Status line looks like "#HTTP1.1 200" where 200 is the status code
           (define status-code
@@ -93,6 +133,7 @@
                     response-expr)])
                (Route-responses route))
             [else (error (format "Unexpected status code ~a" status-code))])))
+
      (API-routes api))))
 
 (define-syntax (openapi-type-provider stx)
@@ -104,4 +145,7 @@
        (define methods (api->methods api))
        (define final `(begin ,@defs ,@methods))
        #;(pretty-print final)
+
+       ;; Use datum->syntax to introduce new names. Need to figure out how to do
+       ;; this with syntax objects.
        (datum->syntax stx final))]))
