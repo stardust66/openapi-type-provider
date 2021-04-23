@@ -15,6 +15,7 @@
          (struct-out Property)
          file->json-schema
          make-schema-with-name
+         make-properties
          ref-string->list
          trace-ref)
 
@@ -25,7 +26,7 @@
 (struct Schema-Number Schema ())
 (struct Schema-Boolean Schema ())
 (struct Schema-Array Schema ([items : Schema]))
-(struct Property ([name : Symbol] [schema : Schema]))
+(struct Property ([name : Symbol] [schema : Schema]) #:transparent)
 
 (define (make-properties [properties : JSExpr] [top : JSExpr])
   (hash-map
@@ -44,18 +45,25 @@
                                [contents : JSExpr]
                                [top : JSExpr]) : Schema
   (with-asserts ([contents hash?])
-    (define name-upper (upper-name name))
     (cond
       [(hash-has-key? contents '$ref)
        (define ref-string (assert (hash-ref contents '$ref) string?))
        (define schema-content (trace-ref ref-string top))
-       (make-schema-with-name name-upper schema-content top)]
+       (make-schema-with-name name schema-content top)]
       [else
-       (define type (assert (hash-ref contents 'type) string?))
+       (define type
+         (with-handlers
+           ([exn:fail?
+             (λ (e)
+               (error
+                (format "Error when creating schema '~a': no type found.\nGiven ~a"
+                        name
+                        contents)))])
+           (assert (hash-ref contents 'type) string?)))
        (case type
          [("object")
           (Schema-Object
-           name-upper
+           name
            (make-properties
             (hash-ref contents
                       'properties
