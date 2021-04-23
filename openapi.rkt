@@ -2,7 +2,9 @@
 
 (provide file->openapi
          (struct-out API)
-         (struct-out Route))
+         (struct-out Route)
+         (struct-out Response)
+         (struct-out Param))
 
 (require typed/json
          racket/list
@@ -11,7 +13,6 @@
          "utils.rkt")
 
 (define-type Method (U 'get 'head 'post 'put 'delete))
-(define-type JsonHash (HashTable Symbol JSExpr))
 
 (: method? (-> Any Boolean : Method))
 (define (method? m)
@@ -26,49 +27,82 @@
 (struct Route
   ([path : String]
    [method : Method]
-   [parameters : (Listof Schema)]
-   [response : Schema])
+   [parameters : (Listof Param)]
+   [responses : (Listof Response)])
   #:transparent)
 
-#;(define-type ParamIn (U 'query 'path 'header 'cookie))
-#;
+(define-type ParamIn (U 'query 'path 'header 'cookie))
+
 (struct Param
-  ([schema : Schema]
+  ([name : Symbol]
+   [schema : Schema]
    [in : ParamIn])
   #:transparent)
 
-(define (make-param [param : JSExpr] [top : JSExpr])
-  (define name (assert (json-ref param 'name) string?))
-  (define schema (json-ref param 'schema))
-  (make-schema-with-name (string->symbol name) schema top))
+(struct Response
+  ([schema : Schema-Object]
+   [code : Symbol]))
 
-(define (make-response [code : Symbol] [response : JSExpr] [top : JSExpr])
-  (define schema (json-refs response '(content application/json schema)))
-  (make-schema-with-name code schema top))
+(define (string->ParamIn [in : String]) : ParamIn
+  (case in
+    [("path") 'path]
+    [("header") 'header]
+    [("query") 'query]
+    [("cookie") 'cookie]
+    [else (error (format "Expected one of 'query', 'path', 'header', 'cookie. Given ~a"
+                         in))]))
 
-(define (get-routes [paths : JSExpr] [top : JSExpr])
-  (: routes (Listof (Listof Route)))
-  (define routes
+(define (make-param [param : JSExpr] [top : JSExpr]) : Param
+  (cond
+    [(json-has-key? param '$ref)
+     (make-param (trace-ref (assert (json-ref param '$ref) string?) top) top)]
+    [else
+     (define name (string->symbol (assert (json-ref param 'name) string?)))
+     (define schema-json (json-ref param 'schema))
+     (define schema (make-schema-with-name name schema-json top))
+     (define param-in (string->ParamIn (assert (json-ref param 'in) string?)))
+     (Param name schema param-in)]))
+
+(define (make-response [code : Symbol]
+                       [method : Method]
+                       [path : Symbol]
+                       [response : JSExpr]
+                       [top : JSExpr]) : Response
+  (define schema-keys '(content application/json schema))
+  (define schema-name (string->symbol (format "~a-~a-~a" method path code)))
+  (define schema
+    (if (json-has-keys? response schema-keys)
+        (make-schema-with-name schema-name (json-refs response schema-keys) top)
+        (Schema-Object schema-name '())))
+  (Response (assert schema Schema-Object?) code))
+
+(define (make-routes-for-path [path : Symbol]
+                              [contents : JSExpr]
+                              [top : JSExpr]) : (Listof Route)
+  (hash-map
+   (assert contents hash?)
+   (λ ([method : Symbol] [body : JSExpr])
+     (with-asserts ([method method?])
+       (define parameters
+         (map
+          (λ ([p : JSExpr]) (make-param p top))
+          (assert (json-ref body 'parameters '()) list?)))
+
+       (define responses : (Listof Response)
+         (for/list ([(code response-body)
+                     (in-hash (assert (json-ref body 'responses) hash?))])
+           (make-response code method path response-body top)))
+       (Route (symbol->string path) method parameters responses)))))
+
+(define (make-routes [paths : JSExpr] [top : JSExpr])
+  (define routes : (Listof (Listof Route))
     (for/list ([(path contents) (in-hash (assert paths hash?))])
-      (hash-map
-       (assert contents hash?)
-       (λ ([method : Symbol] [body : JSExpr])
-         (with-asserts ([method method?])
-           (define parameters
-             (map
-              (λ ([p : JSExpr]) (make-param p top))
-              (assert (json-ref body 'parameters) list?)))
-           (define response
-             (make-response
-              '|200|
-              (json-refs body '(responses |200|))
-              top))
-           (Route (symbol->string path) method parameters response))))))
+      (make-routes-for-path path contents top)))
   (append* routes))
 
 (define (parse-openapi [contents : JSExpr])
   (define name (assert (json-refs contents '(info title)) string?))
-  (define routes (get-routes (json-ref contents 'paths) contents))
+  (define routes (make-routes (json-ref contents 'paths) contents))
   (define url
     (string->url
      (assert
